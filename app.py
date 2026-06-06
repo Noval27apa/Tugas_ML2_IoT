@@ -6,7 +6,7 @@ import os
 # Mengatur tampilan halaman
 st.set_page_config(page_title="Deteksi Serangan IoT", page_icon="🛡️")
 
-# 1. Memuat (load) Pipeline Utuh dari Tahap 8/9
+# 1. Memuat (load) Pipeline
 model_path = os.path.join(os.path.dirname(__file__), 'pipeline_terbaik.pkl')
 pipeline = joblib.load(model_path)
 
@@ -14,36 +14,45 @@ st.title("🛡️ Sistem Deteksi Kerentanan IoT")
 st.write("Aplikasi antarmuka untuk mendemonstrasikan model Machine Learning dalam mendeteksi serangan jaringan IoT.")
 st.markdown("---")
 
-# 2. Fungsi untuk memuat dataset sebagai simulasi aliran data jaringan
+# 2. Fungsi memuat data dengan penyelarasan PAKSA
 @st.cache_data
 def load_data():
     df = pd.read_csv('Preprocessed Balanced dataset.csv')
-    X = df.drop(columns=['Label', 'Attack_Category', 'Attack_sub_category'])
-    y = df['Label']
     
-    # --- PERBAIKAN OTOMATIS NAMA FITUR ---
-    # Memaksa nama kolom X agar 100% persis dengan yang ada di memori model
+    # Ambil label target
+    y = df['Label'] if 'Label' in df.columns else None
+    
+    # Buang label dari data fitur
+    X = df.drop(columns=['Label']) if 'Label' in df.columns else df.copy()
+    
+    # --- 1. Perbaiki Masalah Garis Miring vs Garis Bawah ---
+    X = X.rename(columns={
+        'fwd_pkts_s': 'fwd_pkts/s', 
+        'bwd_pkts_s': 'bwd_pkts/s'
+    })
+    
+    # --- 2. Penyelarasan Anti-Gagal dengan Model ---
     if hasattr(pipeline, "feature_names_in_"):
-        if len(X.columns) == len(pipeline.feature_names_in_):
-            X.columns = pipeline.feature_names_in_
-        else:
-            try:
-                # Jika model hanya membutuhkan sebagian fitur hasil feature selection
-                X = X[pipeline.feature_names_in_]
-            except Exception:
-                pass
-    # ------------------------------------
+        expected_features = pipeline.feature_names_in_
+        
+        # Jika model mencari kolom yang tidak ada (seperti Attack_type), tambahkan kolom palsu berisi 0
+        for col in expected_features:
+            if col not in X.columns:
+                X[col] = 0
+                
+        # Urutkan kolom sama persis seperti saat model dilatih, buang sisanya
+        X = X[expected_features]
+        
     return X, y
 
 X, y = load_data()
 
 st.write("Klik tombol di bawah untuk mengambil sampel paket data jaringan secara acak dan melihat hasil deteksinya.")
 
-# 3. Tombol untuk melakukan prediksi simulasi
+# 3. Tombol Eksekusi
 if st.button("🔍 Simulasi Deteksi Paket Data Jaringan"):
     # Mengambil 1 baris data secara acak
     sampel_data = X.sample(1)
-    label_asli = y[sampel_data.index].values[0]
     
     st.write("### 📡 Data Jaringan yang Masuk (Fitur):")
     st.dataframe(sampel_data)
@@ -57,4 +66,6 @@ if st.button("🔍 Simulasi Deteksi Paket Data Jaringan"):
     else:
         st.success("✅ AMAN: Lalu lintas jaringan Normal.")
         
-    st.write(f"*Bocoran Kunci Jawaban dari Dataset: **{'Serangan (1)' if label_asli == 1 else 'Normal (0)'}***")
+    if y is not None:
+        label_asli = y[sampel_data.index].values[0]
+        st.write(f"*Bocoran Kunci Jawaban dari Dataset: **{'Serangan (1)' if label_asli == 1 else 'Normal (0)'}***")
