@@ -19,28 +19,19 @@ st.markdown("---")
 def load_data():
     df = pd.read_csv('Preprocessed Balanced dataset.csv')
     
-    # Ambil label target
     y = df['Label'] if 'Label' in df.columns else None
-    
-    # Buang label dari data fitur
     X = df.drop(columns=['Label']) if 'Label' in df.columns else df.copy()
     
-    # --- 1. Perbaiki Masalah Garis Miring vs Garis Bawah ---
     X = X.rename(columns={
         'fwd_pkts_s': 'fwd_pkts/s', 
         'bwd_pkts_s': 'bwd_pkts/s'
     })
     
-    # --- 2. Penyelarasan Anti-Gagal dengan Model ---
     if hasattr(pipeline, "feature_names_in_"):
         expected_features = pipeline.feature_names_in_
-        
-        # Jika model mencari kolom yang tidak ada (seperti Attack_type), tambahkan kolom palsu berisi 0
         for col in expected_features:
             if col not in X.columns:
                 X[col] = 0
-                
-        # Urutkan kolom sama persis seperti saat model dilatih, buang sisanya
         X = X[expected_features]
         
     return X, y
@@ -51,14 +42,18 @@ st.write("Klik tombol di bawah untuk mengambil sampel paket data jaringan secara
 
 # 3. Tombol Eksekusi
 if st.button("🔍 Simulasi Deteksi Paket Data Jaringan"):
-    # Mengambil 1 baris data secara acak
     sampel_data = X.sample(1)
     
     st.write("### 📡 Data Jaringan yang Masuk (Fitur):")
     st.dataframe(sampel_data)
     
-    # Melakukan prediksi dengan Pipeline
-    prediksi = pipeline.predict(sampel_data)
+    # --- PERBAIKAN ERROR 1D ARRAY ---
+    # Memaksa data menjadi 2 Dimensi menggunakan .reshape(1, -1) lalu dibungkus kembali menjadi DataFrame
+    data_2d = sampel_data.values.reshape(1, -1)
+    data_prediksi = pd.DataFrame(data_2d, columns=sampel_data.columns)
+    
+    # Melakukan prediksi dengan Pipeline menggunakan data yang sudah di-reshape
+    prediksi = pipeline.predict(data_prediksi)
     
     st.write("### 🤖 Hasil Analisis Model:")
     if prediksi[0] == 1:
