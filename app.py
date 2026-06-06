@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 
 # Mengatur tampilan halaman
 st.set_page_config(page_title="Deteksi Serangan IoT", page_icon="🛡️")
 
 # 1. Memuat (load) Pipeline Utuh dari Tahap 8/9
-# Karena ini Pipeline, data akan otomatis di-scale sebelum diprediksi
-import os
 model_path = os.path.join(os.path.dirname(__file__), 'pipeline_terbaik.pkl')
 pipeline = joblib.load(model_path)
 
@@ -21,6 +20,19 @@ def load_data():
     df = pd.read_csv('Preprocessed Balanced dataset.csv')
     X = df.drop(columns=['Label', 'Attack_Category', 'Attack_sub_category'])
     y = df['Label']
+    
+    # --- PERBAIKAN OTOMATIS NAMA FITUR ---
+    # Memaksa nama kolom X agar 100% persis dengan yang ada di memori model
+    if hasattr(pipeline, "feature_names_in_"):
+        if len(X.columns) == len(pipeline.feature_names_in_):
+            X.columns = pipeline.feature_names_in_
+        else:
+            try:
+                # Jika model hanya membutuhkan sebagian fitur hasil feature selection
+                X = X[pipeline.feature_names_in_]
+            except Exception:
+                pass
+    # ------------------------------------
     return X, y
 
 X, y = load_data()
