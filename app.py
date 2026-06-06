@@ -9,44 +9,35 @@ st.set_page_config(page_title="Deteksi Serangan IoT", page_icon="🛡️")
 model_path = os.path.join(os.path.dirname(__file__), 'pipeline_terbaik.pkl')
 pipeline = joblib.load(model_path)
 
+# Dapatkan daftar fitur yang diharapkan model dari pipeline
+expected_features = pipeline.feature_names_in_
+
 st.title("🛡️ Sistem Deteksi Kerentanan IoT")
-st.write("Aplikasi antarmuka untuk mendemonstrasikan model Machine Learning dalam mendeteksi serangan jaringan IoT.")
+st.write("Aplikasi antarmuka untuk mendemonstrasikan model Machine Learning.")
 st.markdown("---")
 
-# 2. Fungsi memuat data (TANPA CACHE)
+# 2. Fungsi memuat data
+@st.cache_data
 def load_data():
     df = pd.read_csv('Preprocessed Balanced dataset.csv')
     
-    y = df['Label'] if 'Label' in df.columns else None
-    
-    # Pastikan SEMUA kolom bocoran benar-benar dibuang
+    # Buang label jika ada
     kolom_dibuang = ['Label', 'Attack_Category', 'Attack_sub_category', 'Attack_type']
     X = df.drop(columns=[col for col in kolom_dibuang if col in df.columns])
     
-    # PERBAIKAN: HANYA ganti nama untuk fitur garis miring (JANGAN ubah spasi)
-    X = X.rename(columns={
-        'fwd_pkts_s': 'fwd_pkts/s', 
-        'bwd_pkts_s': 'bwd_pkts/s'
-    })
+    # Lakukan penyesuaian otomatis:
+    # 1. Pastikan semua fitur yang ada di model ada di dataset (isi 0 jika tidak ada)
+    # 2. Pastikan urutan kolom SAMA PERSIS dengan model
+    for col in expected_features:
+        if col not in X.columns:
+            X[col] = 0
+            
+    # HANYA ambil kolom yang model inginkan, dan urutkan sesuai model
+    X = X[expected_features]
     
-    # Ambil daftar fitur dari otak model secara paksa
-    expected_features = None
-    if hasattr(pipeline, "feature_names_in_"):
-        expected_features = pipeline.feature_names_in_
-    elif hasattr(pipeline, "steps") and hasattr(pipeline.steps[0][1], "feature_names_in_"):
-        expected_features = pipeline.steps[0][1].feature_names_in_
-        
-    if expected_features is not None:
-        for col in expected_features:
-            if col not in X.columns:
-                X[col] = 0
-        X = X[expected_features]
-        
-    return X, y
+    return X
 
-X, y = load_data()
-
-st.write("Klik tombol di bawah untuk mengambil sampel paket data jaringan secara acak.")
+X = load_data()
 
 # 3. Tombol Eksekusi
 if st.button("🔍 Simulasi Deteksi Paket Data Jaringan"):
@@ -55,18 +46,11 @@ if st.button("🔍 Simulasi Deteksi Paket Data Jaringan"):
     st.write("### 📡 Data Jaringan yang Masuk (Fitur):")
     st.dataframe(sampel_data)
     
-    # Paksa jadi 2D Array agar Scikit-Learn tidak protes
-    data_2d = sampel_data.values.reshape(1, -1)
-    data_prediksi = pd.DataFrame(data_2d, columns=sampel_data.columns)
-    
-    prediksi = pipeline.predict(data_prediksi)
+    # Predict
+    prediksi = pipeline.predict(sampel_data)
     
     st.write("### 🤖 Hasil Analisis Model:")
     if prediksi[0] == 1:
         st.error("🚨 PERINGATAN: Terdeteksi sebagai aktivitas SERANGAN (Attack)!")
     else:
         st.success("✅ AMAN: Lalu lintas jaringan Normal.")
-        
-    if y is not None:
-        label_asli = y[sampel_data.index].values[0]
-        st.write(f"*Bocoran Kunci Jawaban dari Dataset: **{'Serangan (1)' if label_asli == 1 else 'Normal (0)'}***")
