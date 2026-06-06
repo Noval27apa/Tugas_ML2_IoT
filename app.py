@@ -13,7 +13,7 @@ st.title("🛡️ Sistem Deteksi Kerentanan IoT")
 st.write("Aplikasi antarmuka untuk mendemonstrasikan model Machine Learning dalam mendeteksi serangan jaringan IoT.")
 st.markdown("---")
 
-# 2. Fungsi memuat data (TANPA CACHE agar Streamlit tidak nge-bug)
+# 2. Fungsi memuat data (TANPA CACHE)
 def load_data():
     df = pd.read_csv('Preprocessed Balanced dataset.csv')
     
@@ -23,10 +23,7 @@ def load_data():
     kolom_dibuang = ['Label', 'Attack_Category', 'Attack_sub_category', 'Attack_type']
     X = df.drop(columns=[col for col in kolom_dibuang if col in df.columns])
     
-    # Ganti semua SPASI menjadi GARIS BAWAH (Idle Mean -> Idle_Mean)
-    X.columns = X.columns.str.replace(' ', '_')
-    
-    # Samakan nama fitur khusus yang pakai garis miring
+    # PERBAIKAN: HANYA ganti nama untuk fitur garis miring (JANGAN ubah spasi)
     X = X.rename(columns={
         'fwd_pkts_s': 'fwd_pkts/s', 
         'bwd_pkts_s': 'bwd_pkts/s'
