@@ -7,7 +7,9 @@ st.set_page_config(page_title="Deteksi Serangan IoT", page_icon="🛡️")
 
 # 1. Memuat (load) Pipeline Utuh dari Tahap 8/9
 # Karena ini Pipeline, data akan otomatis di-scale sebelum diprediksi
-pipeline = joblib.load('pipeline_terbaik.pkl')
+import os
+model_path = os.path.join(os.path.dirname(__file__), 'pipeline_terbaik.pkl')
+pipeline = joblib.load(model_path)
 
 st.title("🛡️ Sistem Deteksi Kerentanan IoT")
 st.write("Aplikasi antarmuka untuk mendemonstrasikan model Machine Learning dalam mendeteksi serangan jaringan IoT.")
